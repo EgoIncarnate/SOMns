@@ -122,7 +122,7 @@ public class Candidate {
         builder.append("  ");
       }
       builder.append(abbreviateClass(nodeClass));
-      if (!javaType.equals("?")) {
+      if (!"?".equals(javaType)) {
         builder.append('[')
                .append(abbreviateClass(javaType))
                .append(']');
