@@ -122,7 +122,7 @@ public abstract class SOMNode extends Node {
     if (tag == Tags.AnyNode.class) {
       return true;
     } else {
-      return false;
+      return super.isTaggedWith(tag);
     }
   }
 }
