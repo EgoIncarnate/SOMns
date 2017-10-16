@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.oracle.truffle.api.instrumentation.InstrumentableFactory;
+import com.oracle.truffle.api.instrumentation.InstrumentableFactory.WrapperNode;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.nodes.NodeVisitor;
@@ -17,11 +17,12 @@ import tools.dym.profiles.TypeCounter;
 
 
 /**
- * The context collector performs the first step of the superinstruction
+ * The context collector performs the first step of the super-instruction
  * detection heuristic.
  *
- * Given a map mapping nodes to ``TypeCounter`` objects, it constructs
- * a map mapping activation contexts to activation counts.
+ * <p>
+ * Given a map from {@link Node} to {@link TypeCounter} objects, it constructs
+ * a map from activation contexts to activation counts.
  */
 public class ContextCollector implements NodeVisitor {
   private Map<Node, TypeCounter>       activationCounters;
@@ -36,38 +37,35 @@ public class ContextCollector implements NodeVisitor {
 
   /**
    * Given a node, recursively construct a trace of the given context length
-   * and return it as a ``List<Object>``.
+   * and return it as a {@link List}.
    */
   private List<Object> constructTrace(final Node node, final int contextLevel) {
     if (contextLevel == 0 || node.getParent() == null) {
       // If the contextLevel is 0 or if the node is the tree root,
       // we return a list with just one element: The node class name.
-      assert !(node instanceof InstrumentableFactory.WrapperNode);
+      assert !(node instanceof WrapperNode);
       return Arrays.asList(getNodeClass(node));
     } else {
       // In any other case, we construct the rightmost entries of the
       // trace and recursively construct the left part after that.
       // First, we determine the child slot index, i.e.
-      // the index in which ``node`` is located in its
-      // parent's slots.
+      // the index in which node is located in its parent's slots.
+      assert !(node instanceof WrapperNode);
+
       Node childNode = node;
-      assert !(node instanceof InstrumentableFactory.WrapperNode);
       Node parent = node.getParent();
+
       // Need to handle the case in which the direct node parent is a wrapper node.
-      if (parent instanceof InstrumentableFactory.WrapperNode) {
+      if (parent instanceof WrapperNode) {
         childNode = parent;
         parent = parent.getParent();
       }
-      assert !(parent instanceof InstrumentableFactory.WrapperNode);
-      int i = 0;
-      int childIndex = -1;
-      for (Node child : NodeUtil.findNodeChildren(parent)) {
-        if (child == childNode) {
-          childIndex = i;
-        }
-        i++;
-      }
+
+      assert !(parent instanceof WrapperNode);
+
+      int childIndex = getChildIndex(childNode, parent);
       assert childIndex != -1;
+
       // Now, we construct the trace suffix:
       // [..., s_{n-1}, C_n]
       // and construct the left part recursively.
@@ -79,6 +77,17 @@ public class ContextCollector implements NodeVisitor {
       trace.add(childClass);
       return trace;
     }
+  }
+
+  private int getChildIndex(final Node childNode, final Node parent) {
+    int i = 0;
+    for (Node child : NodeUtil.findNodeChildren(parent)) {
+      if (child == childNode) {
+        return i;
+      }
+      i++;
+    }
+    return -1;
   }
 
   /**
@@ -95,7 +104,7 @@ public class ContextCollector implements NodeVisitor {
   /**
    * Return the node class and specifically handle EagerPrimitive nodes.
    */
-  public String getNodeClass(final Node node) {
+  private String getNodeClass(final Node node) {
     // EagerPrimitive nodes get an artificial class name that contains their operation.
     if (node instanceof EagerPrimitive) {
       return "PrimitiveOperation:" + ((EagerPrimitive) node).getOperation();
@@ -105,21 +114,22 @@ public class ContextCollector implements NodeVisitor {
   }
 
   /**
-   * Recursively visit a Node and its children and construct activation contexts.
+   * Recursively visit a node and its children and construct activation contexts.
    */
   @Override
   public boolean visit(final Node node) {
-    if (node instanceof InstrumentableFactory.WrapperNode
-        || node instanceof RootNode) {
+    if (node instanceof WrapperNode || node instanceof RootNode) {
       return true;
     }
+
     TypeCounter activationCounter = activationCounters.get(node);
     if (activationCounter != null) {
       Map<Class<?>, Long> activationsByType = activationCounter.getActivations();
+
       // Handle each activation result Java type separately.
       for (Class<?> javaType : activationsByType.keySet()) {
         long typeActivations = activationsByType.get(javaType);
-        // Construct contexts up to CONTEXT_LENGTH and store them in ``contexts``.
+        // Construct contexts up to CONTEXT_LENGTH
         for (int level = 0; level <= CONTEXT_LEVEL; level++) {
           ActivationContext context = makeActivationContext(node, javaType, level);
           contexts.merge(context, typeActivations, Long::sum);

@@ -11,8 +11,8 @@ import tools.dym.profiles.TypeCounter;
 
 
 /**
- * Simple execution event node which may be used in conjunction with `TypeCounter`
- * to count node activations while also keeping track of the respective result types.
+ * Execution event node to be used with {@link TypeCounter} to count node activations while
+ * also keeping track of the result types.
  */
 public class TypeCountingNode<T extends TypeCounter> extends ExecutionEventNode {
   protected final T counter;
@@ -34,6 +34,7 @@ public class TypeCountingNode<T extends TypeCounter> extends ExecutionEventNode 
     } else if (e instanceof UnexpectedResultException) {
       counter.recordType(((UnexpectedResultException) e).getResult());
     } else if (e instanceof SomException) {
+      // TODO: why don't we consider exceptions as return types?
       // If the SOMns code throws an exception, we should just ignore this.
       return;
     } else {

@@ -38,7 +38,7 @@ public class ActivationContext {
   }
 
   /**
-   * @return a String representation of the activation trace
+   * @return a String representation of the activation trace.
    */
   public String getTraceAsString() {
     return Arrays.stream(trace).map(Object::toString).collect(Collectors.joining(","));
@@ -46,7 +46,7 @@ public class ActivationContext {
 
   /**
    * @return a String representation of the activation context in
-   *         the form of "C_0,s_0,...C_n[type]"
+   *         the form of "C_0,s_0,...C_n[type]".
    */
   @Override
   public String toString() {
